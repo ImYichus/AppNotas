@@ -5,26 +5,28 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.jqleapa.appnotas.ui.theme.AppNotasTheme
-import com.jqleapa.appnotas.ui.navigation.AppNavigation
 import androidx.compose.material3.Surface
-import com.jqleapa.appnotas.ui.screens.HomeScreen
+import androidx.compose.ui.Modifier
+import com.jqleapa.appnotas.ui.navigation.AppNavigation
 import com.jqleapa.appnotas.ui.theme.AppNotasTheme
 import com.jqleapa.appnotas.ui.theme.ThemeStyle
+import com.jqlqapa.appnotas.data.AppContainer
+import com.jqlqapa.appnotas.data.AppDataContainer
+
+lateinit var appContainer: AppContainer
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        appContainer = AppDataContainer(applicationContext)
+
         enableEdgeToEdge()
         setContent {
-            AppNotasTheme(themeStyle = ThemeStyle.EMERALD) {
-                AppNavigation()
+            AppNotasTheme(themeStyle = ThemeStyle.PURPLE) {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    AppNavigation()
+                }
             }
         }
     }

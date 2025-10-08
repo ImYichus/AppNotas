@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -17,11 +18,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.jqleapa.appnotas.ui.navigation.AppScreens
-
+import com.jqlqapa.appnotas.data.model.NoteEntity
+import com.jqlqapa.appnotas.ui.viewmodel.HomeViewModel
+import com.jqlqapa.appnotas.ui.viewmodel.NoteTab
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview
 @Composable
-fun HomeScreen(navController: NavController? = null) {
+fun HomeScreen(
+    navController: NavController? = null,
+
+    canNavigateBack: Boolean = false,
+
+    onBackClick: () -> Unit = {}
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -36,6 +45,17 @@ fun HomeScreen(navController: NavController? = null) {
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary
                 ),
+                navigationIcon = {
+                    if (canNavigateBack) {
+                        IconButton(onClick = onBackClick) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowBack,
+                                contentDescription = "Regresar",
+                                tint = Color.White
+                            )
+                        }
+                    }
+                },
                 actions = {
                     IconButton(onClick = { navController?.navigate(AppScreens.Search.route) }) {
                         Icon(Icons.Default.Search, contentDescription = "Buscar", tint = Color.White)
@@ -71,4 +91,3 @@ fun HomeScreen(navController: NavController? = null) {
         }
     }
 }
-
