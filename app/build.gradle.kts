@@ -67,13 +67,13 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
 
     // --- ROOM (SQLite Persistence) ---
-    val room_version = "2.6.1"
+    val room_version = "2.7.0"
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version")
 
     // 3. CRÍTICO: Reemplazamos KSP por KAPT para el compilador de Room
     // KAPT es una alternativa más antigua y estable que debería solucionar el error de referencia.
-    kapt("androidx.room:room-compiler:2.6.1")
+    kapt("androidx.room:room-compiler:$room_version")
 
     // --- Lifecycle y Coroutines ---
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.6")
