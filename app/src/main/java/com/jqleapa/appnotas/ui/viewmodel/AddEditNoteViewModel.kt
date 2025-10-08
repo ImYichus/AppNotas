@@ -1,19 +1,18 @@
 package com.jqleapa.appnotas.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.util.UUID
-
-// Importaciones corregidas y alineadas con la capa de datos
 import com.jqlqapa.appnotas.data.NoteRepository
 import com.jqlqapa.appnotas.data.model.NoteEntity
 import com.jqlqapa.appnotas.data.model.MediaEntity
 import com.jqlqapa.appnotas.data.model.ReminderEntity
+import kotlinx.coroutines.flow.asStateFlow
 
 // --- Data Classes (UiState) ---
 
@@ -23,7 +22,7 @@ data class AddEditUiState(
     val description: String = "",
     val isTask: Boolean = false,
     val isCompleted: Boolean = false,
-    val taskDueDate: Long? = null, // Timestamp de la fecha de cumplimiento
+    val taskDueDate: Long? = null,
     val mediaFiles: List<MediaItem> = emptyList(),
     val reminders: List<ReminderItem> = emptyList(),
     val isSaving: Boolean = false,
@@ -31,131 +30,126 @@ data class AddEditUiState(
     val error: String? = null
 )
 
-data class MediaItem(
-    val uri: String, // URI del archivo (local o temporal)
-    val description: String,
-    val type: String, // Ej: "image", "video", "audio"
-    val isTemporary: Boolean = true,
-    val mediaId: Long = 0L // ID si ya existe en la BD
-)
-
 data class ReminderItem(
+    val id: Long = 0L, // ✅ ID del recordatorio
     val timeInMillis: Long,
-    val id: Long = 0L, // ID si ya existe en la BD
-    val uuid: String = UUID.randomUUID().toString() // Usado para WorkManager
+    val description: String = ""
 )
 
+data class MediaItem(
+    val id: Long = 0L, // ✅ CORRECCIÓN CLAVE: Agregado el ID para MediaItem
+    val uri: String,
+    val description: String = "",
+    val mediaType: String
+)
+
+// --- ViewModel ---
 
 class AddEditNoteViewModel(
-    private val repository: NoteRepository
+    private val repository: NoteRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AddEditUiState())
-    val uiState: StateFlow<AddEditUiState> = _uiState
+    val uiState: StateFlow<AddEditUiState> = _uiState.asStateFlow()
 
-    // 1. FUNCIÓN PARA CARGAR NOTA COMPLETA (EDICIÓN)
+    // --------------------------------------------------------------------------------
+    // --- LÓGICA DE CARGA (Mapeo corregido) ---
+    // --------------------------------------------------------------------------------
+
     fun loadNote(id: Long) {
-        if (id > 0) {
-            viewModelScope.launch {
-                // Usamos getNoteDetails para obtener Nota, Medios y Recordatorios relacionados
-                val details = repository.getNoteDetails(id).first()
+        if (_uiState.value.noteId == id && id != 0L) return
 
-                // Mapear NoteWithMediaAndReminders a UiState
-                _uiState.update {
-                    it.copy(
-                        noteId = details.note.id,
-                        title = details.note.title,
-                        description = details.note.description,
-                        isTask = details.note.isTask,
-                        isCompleted = details.note.isCompleted,
-                        taskDueDate = details.note.taskDueDate,
+        viewModelScope.launch {
+            try {
+                val noteDetails = repository.getNoteDetails(id).first()
 
-                        // Mapeo de MediaEntity a MediaItem
-                        mediaFiles = details.media.map { media ->
-                            MediaItem(
-                                uri = media.filePath,
-                                description = media.description ?: "",
-                                type = media.mediaType,
-                                isTemporary = false, // Son archivos persistentes
-                                mediaId = media.id
+                _uiState.update { currentState ->
+                    currentState.copy(
+                        noteId = id,
+                        title = noteDetails.note.title,
+                        description = noteDetails.note.description,
+                        isTask = noteDetails.note.isTask,
+                        isCompleted = noteDetails.note.isCompleted,
+                        taskDueDate = noteDetails.note.taskDueDate,
+
+                        reminders = noteDetails.reminders.map { reminderEntity ->
+                            ReminderItem(
+                                id = reminderEntity.id,
+                                timeInMillis = reminderEntity.reminderDateTime
                             )
                         },
-                        // Mapeo de ReminderEntity a ReminderItem
-                        reminders = details.reminders.map { reminder ->
-                            ReminderItem(
-                                timeInMillis = reminder.reminderDateTime,
-                                id = reminder.id,
-                                // Asumimos que la entidad tendrá un UUID para WorkManager
-                                uuid = UUID.randomUUID().toString() // Temporal, idealmente se cargaría de la DB
+
+                        mediaFiles = noteDetails.media.map { mediaEntity ->
+                            MediaItem(
+                                id = mediaEntity.id, // ✅ Mapeo del ID de la entidad
+                                uri = mediaEntity.filePath,
+                                description = mediaEntity.description ?: "",
+                                mediaType = mediaEntity.mediaType ?: "UNKNOWN"
                             )
                         }
                     )
                 }
+
+            } catch (e: Exception) {
+                println("Error al cargar la nota $id: ${e.message}")
+                _uiState.update { it.copy(error = "Error al cargar la nota: ${e.message}") }
             }
         }
     }
 
-    // Funciones de actualización de campos (sin cambios)
-    fun updateTitle(newTitle: String) {
-        _uiState.update { it.copy(title = newTitle) }
-    }
 
-    fun updateDescription(newDescription: String) {
-        _uiState.update { it.copy(description = newDescription) }
-    }
+    // --------------------------------------------------------------------------------
+    // --- LÓGICA DE GUARDADO (Constructores corregidos) ---
+    // --------------------------------------------------------------------------------
 
-    fun toggleIsTask(isTask: Boolean) {
-        _uiState.update { it.copy(isTask = isTask, taskDueDate = if (!isTask) null else it.taskDueDate) }
-    }
-
-    fun updateTaskDueDate(date: Long) {
-        _uiState.update { it.copy(taskDueDate = date) }
-    }
-
-    // Función CRÍTICA para guardar/actualizar la nota y sus adjuntos
     fun saveNote() {
         _uiState.update { it.copy(isSaving = true, error = null) }
+        val current = _uiState.value
+
+        if (current.title.isBlank()) {
+            _uiState.update { it.copy(isSaving = false, error = "El título no puede estar vacío.") }
+            return
+        }
 
         viewModelScope.launch {
             try {
-                // 1. Crear o actualizar la entidad principal
-                val current = _uiState.value
-                val noteToSave = NoteEntity(
+                val noteEntity = NoteEntity(
                     id = current.noteId ?: 0L,
-                    title = current.title.trim(),
-                    description = current.description.trim(),
+                    title = current.title,
+                    description = current.description,
                     isTask = current.isTask,
                     isCompleted = current.isCompleted,
                     taskDueDate = current.taskDueDate,
                     registrationDate = System.currentTimeMillis()
                 )
 
-                // Guarda la nota y obtiene el ID de vuelta
-                val newNoteId = repository.saveNote(noteToSave)
+                val resultingId = repository.saveNote(noteEntity)
 
-                // 2. Guardar archivos multimedia (¡Alineado con MediaEntity!)
-                current.mediaFiles.forEach { mediaItem ->
-                    val mediaEntity = MediaEntity(
-                        id = mediaItem.mediaId,
-                        noteId = newNoteId,
-                        filePath = mediaItem.uri, // <-- CORRECCIÓN: Alineado con MediaEntity
-                        mediaType = mediaItem.type, // <-- CORRECCIÓN: Alineado con MediaEntity
-                        description = mediaItem.description,
-                        thumbnailPath = mediaItem.uri // NOTA: La lógica de generación de miniatura va en el Repository
-                    )
-                    repository.addMedia(mediaEntity) // <-- CORRECCIÓN: Alineado con NoteRepository
+                if (current.noteId == null || current.noteId == 0L) {
+                    _uiState.update { it.copy(noteId = resultingId) }
                 }
 
-                // 3. Guardar recordatorios (¡Alineado con ReminderEntity!)
-                current.reminders.forEach { reminderItem ->
-                    val reminderEntity = ReminderEntity(
-                        id = reminderItem.id,
-                        noteId = newNoteId,
-                        reminderDateTime = reminderItem.timeInMillis, // <-- CORRECCIÓN: Alineado con ReminderEntity
-                        // NOTA: Si decides añadir 'uuid' y 'isActive' a ReminderEntity, descomenta y ajusta aquí:
-                        // uuid = reminderItem.uuid
+                // Guardar Medios. Solo inserta los que tienen ID = 0 (nuevos).
+                current.mediaFiles.filter { it.id == 0L }.forEach { mediaItem ->
+                    val mediaEntity = MediaEntity(
+                        id = 0,
+                        noteId = resultingId,
+                        filePath = mediaItem.uri,
+                        mediaType = mediaItem.mediaType,
+                        description = mediaItem.description,
+                        thumbnailPath = mediaItem.uri
                     )
-                    repository.addReminder(reminderEntity) // <-- CORRECCIÓN: Alineado con NoteRepository
+                    repository.addMedia(mediaEntity)
+                }
+
+                // Guardar Recordatorios. Solo inserta los que tienen ID = 0 (nuevos).
+                current.reminders.filter { it.id == 0L }.forEach { reminderItem ->
+                    val reminderEntity = ReminderEntity(
+                        id = 0,
+                        noteId = resultingId,
+                        reminderDateTime = reminderItem.timeInMillis
+                    )
+                    repository.addReminder(reminderEntity)
                 }
 
                 _uiState.update { it.copy(isSaving = false, saveSuccessful = true) }
@@ -166,8 +160,142 @@ class AddEditNoteViewModel(
         }
     }
 
-    // Función necesaria para resetear el estado de navegación
+    // --------------------------------------------------------------------------------
+    // --- LÓGICA DE ELIMINACIÓN DE ELEMENTOS ---
+    // --------------------------------------------------------------------------------
+
+    fun deleteNote() {
+        val noteId = _uiState.value.noteId
+        if (noteId != null && noteId != 0L) {
+            val noteToDelete = NoteEntity(
+                id = noteId,
+                title = _uiState.value.title,
+                description = _uiState.value.description,
+                isTask = _uiState.value.isTask,
+                isCompleted = _uiState.value.isCompleted,
+                taskDueDate = _uiState.value.taskDueDate,
+                registrationDate = 0L
+            )
+
+            viewModelScope.launch {
+                try {
+                    repository.deleteNote(noteToDelete)
+                    _uiState.update { AddEditUiState(saveSuccessful = true) }
+                } catch (e: Exception) {
+                    _uiState.update { it.copy(error = "Error al eliminar: ${e.message}") }
+                }
+            }
+        }
+    }
+
+    /**
+     * Elimina un archivo adjunto del estado local (UI) y de la base de datos si ya existe.
+     */
+    fun deleteMedia(mediaItem: MediaItem) {
+        _uiState.update { currentState ->
+            currentState.copy(
+                mediaFiles = currentState.mediaFiles.filter { it.id != mediaItem.id }
+            )
+        }
+
+        // Si el elemento ya estaba en la DB (id != 0), lo eliminamos de la DB.
+        if (mediaItem.id != 0L) {
+            viewModelScope.launch {
+                try {
+                    // Nota: Esto requiere que el repositorio tenga un método para eliminar MediaEntity
+                    val mediaToDelete = MediaEntity(
+                        id = mediaItem.id,
+                        noteId = _uiState.value.noteId ?: 0L,
+                        filePath = mediaItem.uri,
+                        mediaType = mediaItem.mediaType,
+                        description = mediaItem.description
+                    )
+                    repository.deleteMedia(mediaToDelete)
+                } catch (e: Exception) {
+                    println("Error al eliminar media de DB: ${e.message}")
+                    // No se actualiza el estado de error para no interrumpir la edición,
+                    // ya que el elemento se eliminó del estado local.
+                }
+            }
+        }
+    }
+
+
+    // --- Métodos de Interacción con la UI (Se mantienen) ---
+    fun updateTitle(newTitle: String) {
+        _uiState.update { it.copy(title = newTitle) }
+    }
+
+    fun updateDescription(newDescription: String) {
+        _uiState.update { it.copy(description = newDescription) }
+    }
+
+    fun updateIsTask(isTask: Boolean) {
+        _uiState.update { it.copy(isTask = isTask) }
+    }
+
+    fun toggleCompletion(isCompleted: Boolean) {
+        _uiState.update { it.copy(isCompleted = isCompleted) }
+    }
+
+    fun updateTaskDueDate(time: Long?) {
+        _uiState.update { it.copy(taskDueDate = time) }
+    }
+
     fun saveComplete() {
         _uiState.update { it.copy(saveSuccessful = false) }
+    }
+
+    fun addReminder() {
+        val newReminder = ReminderItem(
+            id = 0L, // 0L indica que es nuevo
+            timeInMillis = System.currentTimeMillis() + 3600000
+        )
+        _uiState.update {
+            it.copy(reminders = it.reminders + newReminder)
+        }
+    }
+
+    fun deleteReminder(reminder: ReminderItem) {
+        _uiState.update {
+            it.copy(reminders = it.reminders.filter { r -> r.id != reminder.id })
+        }
+        // Lógica de eliminación de DB si reminder.id != 0L. (similar a deleteMedia)
+        if (reminder.id != 0L) {
+            viewModelScope.launch {
+                try {
+                    val reminderToDelete = ReminderEntity(
+                        id = reminder.id,
+                        noteId = _uiState.value.noteId ?: 0L,
+                        reminderDateTime = reminder.timeInMillis
+                    )
+                    repository.deleteReminder(reminderToDelete)
+                } catch (e: Exception) {
+                    println("Error al eliminar recordatorio de DB: ${e.message}")
+                }
+            }
+        }
+    }
+
+    // --------------------------------------------------------------------------------
+    // --- Companion Object y Factory ---
+    // --------------------------------------------------------------------------------
+    companion object {
+        class AddEditViewModelFactory(
+            private val noteRepository: NoteRepository,
+            private val editId: Long? = null
+        ) : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                if (modelClass.isAssignableFrom(AddEditNoteViewModel::class.java)) {
+                    val viewModel = AddEditNoteViewModel(noteRepository)
+                    if (editId != null && editId != 0L) {
+                        viewModel.loadNote(editId)
+                    }
+                    return viewModel as T
+                }
+                throw IllegalArgumentException("Unknown ViewModel class")
+            }
+        }
     }
 }

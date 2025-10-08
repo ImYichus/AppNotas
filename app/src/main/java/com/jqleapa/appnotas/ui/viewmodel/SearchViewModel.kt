@@ -3,7 +3,7 @@ package com.jqleapa.appnotas.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jqlqapa.appnotas.data.NoteRepository
-import com.jqlqapa.appnotas.data.model.NoteEntity
+import com.jqlqapa.appnotas.data.model.NoteEntity // ✅ Asegurar la importación
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.update
 data class SearchUiState(
     val searchQuery: String = "",
     val searchResults: List<NoteEntity> = emptyList(),
-    val isLoading: Boolean = false,
+    val isLoading: Boolean = false, // true solo para el estado inicial si la base de datos es lenta
     val isSearching: Boolean = false
 )
 
@@ -33,9 +33,9 @@ class SearchViewModel(private val repository: NoteRepository) : ViewModel() {
 
     // Estado que la UI observará
     val uiState: StateFlow<SearchUiState> = _searchQuery
-        // Aplica debounce para evitar consultas excesivas a la base de datos con cada pulsación de tecla
+        // Aplica debounce (300ms) para evitar consultas excesivas a la base de datos
         .debounce(300L)
-        // Cuando el query cambia, ejecuta la búsqueda en el repositorio
+        // flatMapLatest asegura que solo la última búsqueda activa es procesada
         .flatMapLatest { query ->
             // Si el query está vacío o solo tiene espacios, retorna un flujo vacío para no buscar
             if (query.isBlank()) {
@@ -45,28 +45,24 @@ class SearchViewModel(private val repository: NoteRepository) : ViewModel() {
                 repository.searchNotesAndTasks(query)
             }
         }
-        // Combina el flujo de resultados con el query y otros estados
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
-        // Mapea los resultados reactivos al UiState final
+        // Combina el flujo de resultados con el query (del _searchQuery sin debounce)
         .combine(_searchQuery) { results, query ->
             SearchUiState(
                 searchQuery = query,
                 searchResults = results,
-                isLoading = false, // La búsqueda es rápida (Room), no necesita estado de carga visible
-                isSearching = query.isNotBlank() // Indica si el usuario ha iniciado la búsqueda
+                isLoading = false,
+                // isSearching es true si hay texto, incluso si está en debounce
+                isSearching = query.isNotBlank()
             )
         }
         .stateIn(
             scope = viewModelScope,
+            // Detiene la emisión después de 5 segundos de que no haya observadores
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = SearchUiState(isLoading = true) // Estado inicial
+            initialValue = SearchUiState(isLoading = false) // Estado inicial sin carga
         )
 
-    // Función llamada desde la UI cuando el usuario escribe en el campo de búsqueda
+    // Función llamada desde la UI cuando el usuario escribe
     fun updateSearchQuery(newQuery: String) {
         _searchQuery.update { newQuery }
     }

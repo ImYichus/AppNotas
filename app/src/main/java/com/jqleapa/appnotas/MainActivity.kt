@@ -10,16 +10,19 @@ import androidx.compose.ui.Modifier
 import com.jqleapa.appnotas.ui.navigation.AppNavigation
 import com.jqleapa.appnotas.ui.theme.AppNotasTheme
 import com.jqleapa.appnotas.ui.theme.ThemeStyle
-import com.jqlqapa.appnotas.data.AppContainer
-import com.jqlqapa.appnotas.data.AppDataContainer
+// Estas importaciones ya no son necesarias en MainActivity:
+// import com.jqlqapa.appnotas.data.AppContainer
+// import com.jqlqapa.appnotas.data.AppDataContainer
 
-lateinit var appContainer: AppContainer
+// ELIMINAR ESTA LÍNEA
+// lateinit var appContainerInstance: AppContainer
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        appContainer = AppDataContainer(applicationContext)
+        // ELIMINAR ESTA LÍNEA
+        // appContainerInstance = AppDataContainer(applicationContext)
 
         enableEdgeToEdge()
         setContent {

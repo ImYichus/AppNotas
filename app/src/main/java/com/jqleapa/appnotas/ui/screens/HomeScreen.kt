@@ -1,5 +1,6 @@
 package com.jqleapa.appnotas.ui.screens
 
+import android.app.Application
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -7,7 +8,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -22,24 +22,30 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel // <-- Importar para usar viewModel()
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.jqleapa.appnotas.ui.navigation.AppScreens
 import com.jqleapa.appnotas.ui.viewmodel.HomeViewModel
 import com.jqleapa.appnotas.ui.viewmodel.NoteTab
 import com.jqlqapa.appnotas.data.model.NoteEntity
+import androidx.compose.ui.platform.LocalContext
+import com.jqlqapa.appnotas.data.AppDataContainer
+import com.jqleapa.appnotas.ui.navigation.NOTE_ID_ARG
+import java.text.SimpleDateFormat
+import java.util.*
 
-// NOTA: Para que 'viewModel()' funcione sin el AppViewModelProvider,
-// debes usar una librería de inyección (Hilt, Koin) o un provider básico.
+private val dateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     navController: NavController,
-    // Obtiene el ViewModel (asumiendo que se proporciona correctamente)
-    viewModel: HomeViewModel = viewModel()
 ) {
-    // 1. Recoger el estado de la UI
+    // Obtener ViewModel
+    val context = LocalContext.current
+    AppDataContainer.initialize(context)
+    val factory = AppDataContainer.homeViewModelFactory
+    val viewModel: HomeViewModel = viewModel(factory = factory)
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
@@ -63,23 +69,20 @@ fun HomeScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            // 2. Componente de Cejillas (Tabs)
             HomeTabRow(
                 selectedTab = uiState.selectedTab,
-                onTabSelected = viewModel::selectTab // Llama al ViewModel para cambiar la pestaña
+                onTabSelected = viewModel::selectTab
             )
 
-            // 3. Contenido Principal (Muestra lista, carga o estado vacío)
             when {
                 uiState.isLoading -> LoadingScreen()
                 uiState.currentList.isEmpty() -> EmptyState(uiState.selectedTab)
                 else -> NoteTaskList(
                     notes = uiState.currentList,
                     onNoteClick = { id ->
-                        // Navega a la ruta de edición, pasando el ID de la nota
-                        navController.navigate("${AppScreens.EditNote.route}/$id")
+                        val routeWithId = AppScreens.EditNote.route.replace("{$NOTE_ID_ARG}", id.toString())
+                        navController.navigate(routeWithId)
                     },
-                    // Llama a las funciones del ViewModel para interactuar con la DB
                     onToggleCompletion = viewModel::toggleTaskCompletion,
                     onDelete = viewModel::deleteNote
                 )
@@ -87,10 +90,6 @@ fun HomeScreen(
         }
     }
 }
-
-// --------------------------------------------------------------------------------
-// --- COMPONENTES REUTILIZABLES ---
-// --------------------------------------------------------------------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeTopBar(onSearchClick: () -> Unit) {
@@ -143,7 +142,6 @@ fun NoteTaskList(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Usamos el ID como key para optimizar el rendimiento de Compose
         items(notes, key = { it.id }) { note ->
             NoteCard(
                 note = note,
@@ -181,7 +179,6 @@ fun NoteCard(
         ) {
             // Columna de contenido (Título y Descripción)
             Column(modifier = Modifier.weight(1f)) {
-                // Lógica para aplicar tachado si es una tarea completada
                 val titleStyle = if (note.isTask && note.isCompleted) {
                     TextStyle(textDecoration = TextDecoration.LineThrough, color = Color.Gray)
                 } else {
@@ -194,6 +191,7 @@ fun NoteCard(
                     maxLines = 1
                 )
                 Spacer(modifier = Modifier.height(4.dp))
+
                 Text(
                     text = note.description.take(50) + if (note.description.length > 50) "..." else "",
                     color = Color.DarkGray,
@@ -201,9 +199,9 @@ fun NoteCard(
                 )
 
                 if (note.isTask && note.taskDueDate != null) {
+                    // ✅ CORRECCIÓN: Usar SimpleDateFormat para formatear el timestamp
                     Text(
-                        // Se requiere una función de formato de fecha real
-                        text = "Vence: ${note.taskDueDate}",
+                        text = "Vence: ${dateFormatter.format(Date(note.taskDueDate))}",
                         color = MaterialTheme.colorScheme.secondary,
                         fontSize = 12.sp
                     )
@@ -212,7 +210,6 @@ fun NoteCard(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // Acciones: Checkbox para Tareas y Botón de Eliminación
             if (note.isTask) {
                 Checkbox(
                     checked = note.isCompleted,

@@ -1,36 +1,82 @@
 package com.jqleapa.appnotas.ui.screens
 
-
-
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
+import com.jqlqapa.appnotas.data.AppDataContainer
+import com.jqlqapa.appnotas.data.NoteRepository
+import com.jqleapa.appnotas.ui.viewmodel.AddEditNoteViewModel
+import com.jqleapa.appnotas.ui.viewmodel.MediaItem
+import com.jqleapa.appnotas.ui.viewmodel.ReminderItem
+import java.text.SimpleDateFormat
 import java.util.*
 
+private val dateFormatter: SimpleDateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
 
-data class Attachment(val name: String, val type: String, val description: String = "")
+class AddEditViewModelFactory(
+    private val noteRepository: NoteRepository
+) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(AddEditNoteViewModel::class.java)) {
+            return AddEditNoteViewModel(noteRepository) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
+    }
+}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Preview(showBackground = true)
 @Composable
-fun EditNoteScreen() {
-    var title by remember { mutableStateOf("Título existente") }
-    var description by remember { mutableStateOf("Descripción existente") }
-    var isTask by remember { mutableStateOf(true) }
-    var dueDate by remember { mutableStateOf<Date?>(Calendar.getInstance().time) }
-    var reminders by remember { mutableStateOf(mutableListOf<Date>()) }
-    var attachments by remember { mutableStateOf(mutableListOf<Attachment>()) }
+fun EditNoteScreen(
+    noteId: Long,
+    navController: NavHostController,
+    viewModel: AddEditNoteViewModel = viewModel(
+        factory = AddEditViewModelFactory(AppDataContainer.noteRepository)
+    )
+) {
+
+    LaunchedEffect(key1 = noteId) {
+        viewModel.loadNote(noteId)
+    }
+
+    val uiState by viewModel.uiState.collectAsState()
+
+    var showDatePicker by remember { mutableStateOf(false) }
+
+
+    if (uiState.saveSuccessful) {
+        LaunchedEffect(Unit) {
+            viewModel.saveComplete() // Resetear el estado
+            println("✅ Navegación: Edición exitosa, regresando...")
+            navController.popBackStack() // Regresa a la pantalla anterior
+        }
+    }
+
+    if (showDatePicker) {
+        SimulatedDateTimePickerDialog(
+            onDismiss = { showDatePicker = false },
+            onDateSelected = { time ->
+                viewModel.updateTaskDueDate(time) // Llama a la función del ViewModel
+                showDatePicker = false
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -48,230 +94,261 @@ fun EditNoteScreen() {
                 )
             )
         },
-
         floatingActionButton = {
             FloatingActionButton(
-
-                onClick = { /* Guardar cambios */ },
-
+                onClick = {
+                    // Ahora saveNote() actualizará si uiState.noteId tiene valor
+                    if (!uiState.isSaving && uiState.title.isNotBlank()) {
+                        viewModel.saveNote()
+                    }
+                },
                 containerColor = MaterialTheme.colorScheme.secondary,
-
                 shape = RoundedCornerShape(16.dp)
-
             ) {
-
-                Text("Guardar")
-
+                if (uiState.isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.onSecondary
+                    )
+                } else {
+                    Text("Guardar", modifier = Modifier.padding(horizontal = 8.dp))
+                }
             }
-
         }
-
     ) { padding ->
 
-        Column(
-
+        LazyColumn(
             modifier = Modifier
-
                 .padding(padding)
-
                 .padding(16.dp)
-
                 .fillMaxSize(),
-
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-
-// Selección Nota/Tarea
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-
-                Text("Tipo:", fontWeight = FontWeight.Medium)
-
-                Spacer(modifier = Modifier.width(16.dp))
-
+            item {
+                // Selección Nota/Tarea
                 Row(verticalAlignment = Alignment.CenterVertically) {
-
-                    RadioButton(selected = !isTask, onClick = { isTask = false })
-
-                    Text("Nota")
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    RadioButton(selected = isTask, onClick = { isTask = true })
-
-                    Text("Tarea")
-
+                    Text("Tipo:", fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(
+                            selected = !uiState.isTask,
+                            onClick = { viewModel.updateIsTask(false) }
+                        )
+                        Text("Nota")
+                        Spacer(modifier = Modifier.width(8.dp))
+                        RadioButton(
+                            selected = uiState.isTask,
+                            onClick = { viewModel.updateIsTask(true) }
+                        )
+                        Text("Tarea")
+                    }
                 }
-
             }
 
-
-
-// Título y Descripción
-
-            OutlinedTextField(
-
-                value = title,
-
-                onValueChange = { title = it },
-
-                label = { Text("Título") },
-
-                modifier = Modifier
-
-                    .fillMaxWidth(),
-
-                shape = RoundedCornerShape(12.dp)
-
-            )
-
-            OutlinedTextField(
-
-                value = description,
-
-                onValueChange = { description = it },
-
-                label = { Text("Descripción") },
-
-                modifier = Modifier
-
-                    .fillMaxWidth(),
-
-                maxLines = 5,
-
-                shape = RoundedCornerShape(12.dp)
-
-            )
-
-
-
-// Fecha y hora (solo si es tarea)
-
-            if (isTask) {
-
-                Button(onClick = { /* Abrir DatePicker */ }) {
-
-                    Text(dueDate?.toString() ?: "Seleccionar Fecha y Hora")
-
-                }
-
+            item {
+                // Título y Descripción
+                OutlinedTextField(
+                    value = uiState.title,
+                    onValueChange = viewModel::updateTitle,
+                    label = { Text("Título") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    isError = uiState.title.isBlank() && !uiState.isSaving
+                )
+            }
+            item {
+                OutlinedTextField(
+                    value = uiState.description,
+                    onValueChange = viewModel::updateDescription,
+                    label = { Text("Descripción") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    shape = RoundedCornerShape(12.dp)
+                )
             }
 
-
-
-// Recordatorios dinámicos
-
-            if (isTask) {
-
-                Column {
-
-                    Text("Recordatorios:", fontWeight = FontWeight.Medium)
-
-                    reminders.forEachIndexed { index, reminder ->
-
-                        Row(
-
-                            verticalAlignment = Alignment.CenterVertically,
-
-                            horizontalArrangement = Arrangement.SpaceBetween,
-
+            // --- Lógica de Tarea ---
+            if (uiState.isTask) {
+                item {
+                    // Fecha y hora
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Fecha de Cumplimiento:", fontWeight = FontWeight.Medium)
+                        Button(
+                            onClick = { showDatePicker = true },
                             modifier = Modifier.fillMaxWidth()
-
                         ) {
-
-                            Text(reminder.toString())
-
-                            Button(onClick = { reminders.removeAt(index) }) {
-
-                                Text("Eliminar")
-
-                            }
-
+                            Text(
+                                uiState.taskDueDate?.let { dateFormatter.format(Date(it)) }
+                                    ?: "Seleccionar Fecha y Hora"
+                            )
                         }
-
                     }
-
-                    Button(onClick = { /* Agregar nuevo recordatorio */ }) {
-
-                        Text("Agregar Recordatorio")
-
-                    }
-
                 }
 
-            }
-
-
-
-// Adjuntar multimedia y grabaciones
-
-            LazyColumn {
-
-                items(attachments) { attachment ->
-
+                item {
+                    // Requisito: Marcar como cumplida
                     Row(
-
                         verticalAlignment = Alignment.CenterVertically,
-
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         modifier = Modifier
-
                             .fillMaxWidth()
-
-                            .padding(vertical = 4.dp)
-
-                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
-
-                            .padding(8.dp)
-
+                            .padding(vertical = 8.dp)
                     ) {
-
-                        Column {
-
-                            Text(attachment.name, fontWeight = FontWeight.Medium)
-
-                            if (attachment.description.isNotEmpty()) {
-
-                                Text(attachment.description, fontSize = 12.sp, color = Color.Gray)
-
-                            }
-
-                        }
-
-                        Spacer(modifier = Modifier.weight(1f))
-
-                        Button(onClick = { attachments.remove(attachment) }) {
-
-                            Text("Eliminar")
-
-                        }
-
+                        Text("Tarea Cumplida:", fontWeight = FontWeight.Medium)
+                        Checkbox(
+                            checked = uiState.isCompleted,
+                            onCheckedChange = viewModel::toggleCompletion
+                        )
                     }
-
+                    Button(
+                        onClick = { showDatePicker = true } // Posponer es re-seleccionar fecha
+                    ) {
+                        Text("Posponer Tarea")
+                    }
                 }
 
+                item {
+                    // Recordatorios dinámicos
+                    Text("Recordatorios:", fontWeight = FontWeight.Medium)
+                }
+
+                // Lista de Recordatorios
+                items(uiState.reminders, key = { it.id }) { reminderItem ->
+                    ReminderItemComponent(
+                        reminderItem = reminderItem,
+                        onDelete = { viewModel.deleteReminder(reminderItem) }
+                    )
+                }
+
+                item {
+                    Button(
+                        onClick = { viewModel.addReminder() },
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(12.dp)
+                    ) {
+                        Text("Agregar Recordatorio")
+                    }
+                }
             }
 
-
-
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-
-                Button(onClick = { /* Adjuntar multimedia */ }) {
-
-                    Text("Adjuntar Multimedia")
-
-                }
-
-                Button(onClick = { /* Grabar audio */ }) {
-
-                    Text("Grabar Audio")
-
-                }
-
+            // --- Adjuntos Multimedia ---
+            item {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text("Archivos Adjuntos:", fontWeight = FontWeight.Medium)
             }
 
+            // Lista de Adjuntos
+            items(uiState.mediaFiles, key = { it.uri }) { mediaItem ->
+                AttachmentItemComponent(
+                    mediaItem = mediaItem,
+                    onDelete = { /* Lógica de eliminación en ViewModel: deleteMedia(mediaItem) */ }
+                )
+            }
+
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(onClick = { /* Lógica para Adjuntar multimedia */ }) {
+                        Text("Adjuntar Multimedia")
+                    }
+                    Button(onClick = { /* Lógica para Grabar audio */ }) {
+                        Text("Grabar Audio")
+                    }
+                }
+            }
         }
-
     }
+}
 
+// Los componentes auxiliares (ReminderItemComponent, AttachmentItemComponent, SimulatedDateTimePickerDialog)
+// se mantienen sin cambios, ya que estaban correctamente definidos como privados.
+
+@Composable
+private fun ReminderItemComponent(reminderItem: ReminderItem, onDelete: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+        ) {
+            Text(
+                text = reminderItem.timeInMillis.let { dateFormatter.format(Date(it)) },
+                fontWeight = FontWeight.Normal
+            )
+            IconButton(onClick = onDelete) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "Eliminar Recordatorio",
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AttachmentItemComponent(mediaItem: MediaItem, onDelete: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+        ) {
+            Column {
+                Text(mediaItem.uri.substringAfterLast('/'), fontWeight = FontWeight.Medium)
+                if (mediaItem.description.isNotEmpty()) {
+                    Text(
+                        mediaItem.description,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            IconButton(onClick = onDelete) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "Eliminar Adjunto",
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SimulatedDateTimePickerDialog(onDismiss: () -> Unit, onDateSelected: (Long) -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Seleccionar Fecha y Hora") },
+        text = { Text("Simulación: La fecha se establecerá a mañana a las 10:00 AM.") },
+        confirmButton = {
+            Button(onClick = {
+                val tomorrow = Calendar.getInstance().apply {
+                    add(Calendar.DAY_OF_YEAR, 1)
+                    set(Calendar.HOUR_OF_DAY, 10)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                }.timeInMillis
+                onDateSelected(tomorrow)
+            }) {
+                Text("Confirmar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
+        }
+    )
 }
