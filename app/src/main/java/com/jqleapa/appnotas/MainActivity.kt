@@ -16,12 +16,14 @@ import com.jqleapa.appnotas.ui.navigation.AppNavigation
 import androidx.compose.material3.Surface
 import com.jqleapa.appnotas.ui.screens.HomeScreen
 import com.jqleapa.appnotas.ui.theme.AppNotasTheme
+import com.jqleapa.appnotas.ui.theme.ThemeStyle
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            AppNotasTheme {
+            AppNotasTheme(themeStyle = ThemeStyle.EMERALD) {
                 AppNavigation()
             }
         }
