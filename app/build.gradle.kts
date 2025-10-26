@@ -8,11 +8,13 @@ plugins {
 }
 
 android {
-    namespace = "com.jqleapa.appnotas"
+    // 🚨 CORRECCIÓN 1: El namespace debe ser 'jqlqapa'
+    namespace = "com.jqlqapa.appnotas"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.jqleapa.appnotas"
+        // 🚨 CORRECCIÓN 2: El applicationId debe ser 'jqlqapa'
+        applicationId = "com.jqlqapa.appnotas"
         // Mantengo minSdk 24 porque la mayoría de las librerías modernas de Compose lo exigen.
         minSdk = 24
         targetSdk = 36

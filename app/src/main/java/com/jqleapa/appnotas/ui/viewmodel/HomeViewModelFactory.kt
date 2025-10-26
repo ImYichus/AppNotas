@@ -3,6 +3,7 @@ package com.jqleapa.appnotas.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.jqlqapa.appnotas.data.NoteRepository
+import com.jqlqapa.appnotas.ui.viewmodel.HomeViewModel
 
 // Esta clase es la "receta" que le dice a Android cómo crear HomeViewModel
 class HomeViewModelFactory(

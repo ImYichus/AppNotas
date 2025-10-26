@@ -1,13 +1,14 @@
-// AppContainer.kt - MODIFICACIÓN COMPLETA
-
-package com.jqlqapa.appnotas.data
+package com.jqlqapa.appnotas.data // Paquete correcto: jqlqapa
 
 import android.content.Context
-import androidx.room.Room // ¡Necesario para Room.databaseBuilder!
-import com.jqlqapa.appnotas.data.model.MediaDao
-import com.jqlqapa.appnotas.data.model.NoteDao
-import com.jqlqapa.appnotas.data.model.ReminderDao
+import androidx.room.Room
 import com.jqleapa.appnotas.ui.viewmodel.HomeViewModelFactory
+import com.jqlqapa.appnotas.data.model.MediaDao // Correcto
+import com.jqlqapa.appnotas.data.model.NoteDao // Correcto
+import com.jqlqapa.appnotas.data.model.ReminderDao // Correcto
+
+// ⬅️ CORRECCIÓN: Usar el paquete correcto 'jqlqapa'
+//import com.jqlqapa.appnotas.ui.viewmodel.HomeViewModelFactory
 
 /**
  * Contenedor de dependencias simple (Service Locator) para toda la aplicación.
@@ -26,12 +27,12 @@ object AppDataContainer : AppContainer { // ¡Cambiamos 'class' por 'object'!
     private lateinit var internalHomeViewModelFactory: HomeViewModelFactory
     private var isInitialized = false
 
-    // Propiedades de la interfaz
+    // Propiedades de la interfaz. Esto lanza el error si no se llama a initialize.
     override val noteRepository: NoteRepository
-        get() = if (isInitialized) internalNoteRepository else throw IllegalStateException("AppContainer no ha sido inicializado. Llame a initialize(Context).")
+        get() = if (isInitialized) internalNoteRepository else throw IllegalStateException("AppContainer not initialized. Call initialize(context) first.")
 
     override val homeViewModelFactory: HomeViewModelFactory
-        get() = if (isInitialized) internalHomeViewModelFactory else throw IllegalStateException("AppContainer no ha sido inicializado. Llame a initialize(Context).")
+        get() = if (isInitialized) internalHomeViewModelFactory else throw IllegalStateException("AppContainer not initialized. Call initialize(context) first.")
 
     // Función de inicialización
     fun initialize(context: Context) {
@@ -40,11 +41,17 @@ object AppDataContainer : AppContainer { // ¡Cambiamos 'class' por 'object'!
         val applicationContext = context.applicationContext
 
         // 1. Base de datos
+        // NOTA: Si aún da error aquí, es posible que necesites añadir .allowMainThreadQueries() para debug
+        // pero NO es recomendado para producción.
         val database: AppDatabase = Room.databaseBuilder(
             context = applicationContext,
             klass = AppDatabase::class.java,
             name = "notes_database"
-        ).build()
+        )
+            // Agregamos .fallbackToDestructiveMigration() como red de seguridad temporal
+            // si hay problemas con la versión de la DB.
+            .fallbackToDestructiveMigration()
+            .build()
 
         // 2. Provisión de DAOs
         val noteDao: NoteDao = database.noteDao()
@@ -60,6 +67,3 @@ object AppDataContainer : AppContainer { // ¡Cambiamos 'class' por 'object'!
         isInitialized = true
     }
 }
-
-// NOTA: Si su archivo original tenía una clase llamada AppDataContainer,
-// asegúrese de que ha sido reemplazada por el 'object' de arriba.

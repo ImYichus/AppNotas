@@ -1,8 +1,9 @@
-package com.jqleapa.appnotas.ui.viewmodel
+package com.jqlqapa.appnotas.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jqlqapa.appnotas.data.NoteRepository
+import com.jqlqapa.appnotas.data.model.MediaEntity
 import com.jqlqapa.appnotas.data.model.NoteEntity
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -33,10 +34,8 @@ class HomeViewModel(private val repository: NoteRepository) : ViewModel() {
     // 1. Estado para la Pestaña/Cejilla seleccionada
     private val _selectedTab = MutableStateFlow(NoteTab.NOTES)
 
-    // 2. Flujo de datos del Repository (ya ordenados según NOTA 4)
-    // Se ordenan por fecha de registro
+    // 2. Flujo de datos del Repository
     private val notesFlow = repository.getAllNotes()
-    // Se ordenan por fecha de en qué deben realizarse
     private val tasksFlow = repository.getAllTasks()
 
     // 3. Estado Combinado que la UI va a observar
@@ -53,7 +52,7 @@ class HomeViewModel(private val repository: NoteRepository) : ViewModel() {
         HomeUiState(
             currentList = currentList,
             selectedTab = tab,
-            isLoading = false // Se asume que si los flows tienen datos, la carga inicial terminó
+            isLoading = false
         )
     }.stateIn(
         scope = viewModelScope,
@@ -67,7 +66,7 @@ class HomeViewModel(private val repository: NoteRepository) : ViewModel() {
         _selectedTab.value = tab
     }
 
-    // Función para marcar una tarea como cumplida (Requisito) [cite: 8]
+    // Función para marcar una tarea como cumplida (Requisito)
     fun toggleTaskCompletion(task: NoteEntity) {
         // Solo aplica la lógica si realmente es una tarea
         if (task.isTask) {
@@ -79,10 +78,20 @@ class HomeViewModel(private val repository: NoteRepository) : ViewModel() {
         }
     }
 
-    // Función para eliminar una nota/tarea (Requisito: NOTA 1) [cite: 12]
+    // Función para eliminar una nota/tarea
     fun deleteNote(note: NoteEntity) {
         viewModelScope.launch {
             repository.deleteNote(note)
+        }
+    }
+
+    // ✅ CORRECCIÓN 1: Cambiado de propiedad a función (repository.allMedia -> repository.getAllMedia())
+    val allMedia = repository.getAllMedia()
+
+    // ✅ CORRECCIÓN 2: Cambiado el nombre de la función (repository.insertMedia -> repository.addMedia)
+    fun addMedia(media: MediaEntity) {
+        viewModelScope.launch {
+            repository.addMedia(media)
         }
     }
 }

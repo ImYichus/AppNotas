@@ -1,5 +1,4 @@
 package com.jqlqapa.appnotas.data
-
 import com.jqlqapa.appnotas.data.model.MediaDao
 import com.jqlqapa.appnotas.data.model.MediaEntity
 import com.jqlqapa.appnotas.data.model.NoteDao
@@ -44,6 +43,9 @@ class NoteRepository(
     }
 
     // --- OPERACIONES MULTIMEDIA ---
+
+    fun getAllMedia(): Flow<List<MediaEntity>> = mediaDao.getAllMedia()
+
     suspend fun addMedia(media: MediaEntity) {
         mediaDao.insertMedia(media)
     }

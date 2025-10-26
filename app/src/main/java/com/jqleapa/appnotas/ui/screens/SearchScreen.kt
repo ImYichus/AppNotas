@@ -20,9 +20,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.jqlqapa.appnotas.data.AppDataContainer
 import com.jqlqapa.appnotas.data.NoteRepository
-import com.jqleapa.appnotas.ui.navigation.AppScreens
+//import com.jqleapa.appnotas.ui.navigation.AppScreens
 import com.jqleapa.appnotas.ui.viewmodel.SearchViewModel
 import com.jqlqapa.appnotas.data.model.NoteEntity
+import com.jqlqapa.appnotas.ui.navigation.AppScreens
+import com.jqlqapa.appnotas.ui.screens.NoteCard
+
 class SearchViewModelFactory(
     private val noteRepository: NoteRepository
 ) : ViewModelProvider.Factory {

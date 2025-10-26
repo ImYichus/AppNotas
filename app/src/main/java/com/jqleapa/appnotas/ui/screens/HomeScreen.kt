@@ -1,9 +1,11 @@
-package com.jqleapa.appnotas.ui.screens
+package com.jqlqapa.appnotas.ui.screens // ⬅️ CORRECCIÓN 1: Paquete cambiado a 'jqlqapa'
 
-import android.app.Application
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -17,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -24,15 +27,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.jqleapa.appnotas.ui.navigation.AppScreens
-import com.jqleapa.appnotas.ui.viewmodel.HomeViewModel
-import com.jqleapa.appnotas.ui.viewmodel.NoteTab
+import com.jqlqapa.appnotas.ui.navigation.AppScreens // ⬅️ CORRECCIÓN: Usando 'jqlqapa'
+import com.jqlqapa.appnotas.ui.viewmodel.HomeViewModel // ⬅️ CORRECCIÓN: Usando 'jqlqapa'
+//import com.jqlqapa.appnotas.ui.viewmodel.HomeViewModelFactory // ⬅️ Importación necesaria
+import com.jqlqapa.appnotas.ui.viewmodel.NoteTab // ⬅️ CORRECCIÓN: Usando 'jqlqapa'
 import com.jqlqapa.appnotas.data.model.NoteEntity
-import androidx.compose.ui.platform.LocalContext
 import com.jqlqapa.appnotas.data.AppDataContainer
-import com.jqleapa.appnotas.ui.navigation.NOTE_ID_ARG
+import com.jqlqapa.appnotas.ui.navigation.NOTE_ID_ARG // ⬅️ CORRECCIÓN: Usando 'jqlqapa'
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.ui.platform.LocalContext
 
 private val dateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
 
@@ -40,12 +44,18 @@ private val dateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
 @Composable
 fun HomeScreen(
     navController: NavController,
+    // ✅ INYECTAMOS EL VIEWMODEL (más limpio) o lo resolvemos en el Composable
 ) {
-    // Obtener ViewModel
+    // ⬇️ CORRECCIÓN 2: Obtener ViewModel de forma correcta usando el Singleton.
+    // Asumimos que AppDataContainer ya está inicializado en AppNotasApplication.kt
     val context = LocalContext.current
-    AppDataContainer.initialize(context)
+
+    // Obtener la instancia de la fábrica del Singleton ya inicializado
+    // Usamos el mismo patrón de AppNotasApplication.kt, asumiendo que el Singleton funciona
     val factory = AppDataContainer.homeViewModelFactory
     val viewModel: HomeViewModel = viewModel(factory = factory)
+
+    // El resto del código usa el uiState de forma correcta
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
@@ -137,21 +147,46 @@ fun NoteTaskList(
     onToggleCompletion: (NoteEntity) -> Unit,
     onDelete: (NoteEntity) -> Unit
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(notes, key = { it.id }) { note ->
-            NoteCard(
-                note = note,
-                onClick = { onNoteClick(note.id) },
-                onToggleCompletion = { onToggleCompletion(note) },
-                onDelete = { onDelete(note) }
-            )
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.screenWidthDp > 600
+
+    if (isTablet) {
+        // Para tablets: Grid de 2 columnas
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(notes, key = { it.id }) { note ->
+                NoteCard(
+                    note = note,
+                    onClick = { onNoteClick(note.id) },
+                    onToggleCompletion = { onToggleCompletion(note) },
+                    onDelete = { onDelete(note) }
+                )
+            }
+        }
+    } else {
+        // Para móviles: lista vertical normal
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(notes, key = { it.id }) { note ->
+                NoteCard(
+                    note = note,
+                    onClick = { onNoteClick(note.id) },
+                    onToggleCompletion = { onToggleCompletion(note) },
+                    onDelete = { onDelete(note) }
+                )
+            }
         }
     }
 }
+
 
 @Composable
 fun NoteCard(
