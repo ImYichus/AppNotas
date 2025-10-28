@@ -51,12 +51,23 @@ sealed class AppScreens(val route: String, val label: String? = null, val icon: 
     object EditNote : AppScreens("edit_note/{$NOTE_ID_ARG}")
 
     fun withArgs(vararg args: String): String {
-        return buildString {
-            append(route)
-            args.forEach { arg ->
-                append("/$arg")
+        var finalRoute = this.route
+
+        // La lógica asume que para NoteDetail y EditNote, solo se espera el Note ID.
+        if (args.isNotEmpty()) {
+            if (finalRoute.contains("{$NOTE_ID_ARG}")) {
+                // Reemplaza el placeholder con el primer argumento (el ID)
+                finalRoute = finalRoute.replace("{$NOTE_ID_ARG}", args[0])
+            }
+            // Si hay más argumentos (o la ruta no usa {noteId}), se concatenan.
+            // Para rutas como "camera" o "gallery", esto no debería tener efecto.
+            if (args.size > 1) {
+                // Junta los argumentos restantes con '/'
+                val additionalArgs = args.drop(1).joinToString("/")
+                finalRoute += "/$additionalArgs"
             }
         }
+        return finalRoute
     }
 }
 
@@ -135,7 +146,7 @@ fun AppNavigation(
             }
             composable(AppScreens.Reminder.route) {
                 // CAMBIO 4: Usamos ReminderScreen, que se ve en la estructura de tu proyecto
-                HomeScreen(navController = navController)
+                ReminderScreen(navController = navController)
             }
 
             // --- PANTALLAS QUE NO ESTÁN EN EL MENÚ INFERIOR, pero son rutas válidas ---

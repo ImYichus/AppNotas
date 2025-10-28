@@ -14,81 +14,98 @@ import kotlinx.coroutines.launch
 
 // --- 1. ENUM Y DATA CLASSES PARA EL ESTADO ---
 
-// Enum para manejar las pestañas de la UI
 enum class NoteTab {
     NOTES, TASKS
 }
 
-// Estado que la Home/UI observará
+// ESTADO ACTUALIZADO para añadir la selección de detalle (selectedNoteId)
 data class HomeUiState(
     val currentList: List<NoteEntity> = emptyList(),
     val selectedTab: NoteTab = NoteTab.NOTES,
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val selectedNoteId: Long? = null // AÑADIDO para el diseño Maestro-Detalle
 )
 
 // --- 2. VIEW MODEL IMPLEMENTACIÓN ---
 
 class HomeViewModel(private val repository: NoteRepository) : ViewModel() {
 
-    // 1. Estado para la Pestaña/Cejilla seleccionada
     private val _selectedTab = MutableStateFlow(NoteTab.NOTES)
+    private val _selectedNoteId = MutableStateFlow<Long?>(null) // AÑADIDO
 
-    // 2. Flujo de datos del Repository
-    private val notesFlow = repository.getAllNotes()
-    private val tasksFlow = repository.getAllTasks()
+    // Usamos un único flujo con todas las notas/tareas
+    private val allNotesFlow = repository.getAllNotes()
 
-    // 3. Estado Combinado que la UI va a observar
+    // 3. Estado Combinado que la UI va a observar (ACTUALIZADO para incluir _selectedNoteId)
     val uiState: StateFlow<HomeUiState> = combine(
+        allNotesFlow,
         _selectedTab,
-        notesFlow,
-        tasksFlow
-    ) { tab, notes, tasks ->
-        // Decide qué lista exponer basándose en la pestaña seleccionada
-        val currentList = when (tab) {
-            NoteTab.NOTES -> notes
-            NoteTab.TASKS -> tasks
+        _selectedNoteId
+    ) { allNotes, selectedTab, selectedId ->
+
+        // 1. Filtrar la lista según la pestaña seleccionada
+        val filteredList = when (selectedTab) {
+            NoteTab.NOTES -> allNotes.filter { !it.isTask }
+            NoteTab.TASKS -> allNotes.filter { it.isTask }
         }
+
+        // 2. Validar el selectedId: si la nota seleccionada ya no existe en la lista, la deseleccionamos.
+        val validSelectedId = if (filteredList.any { it.id == selectedId }) selectedId else null
+
+
         HomeUiState(
-            currentList = currentList,
-            selectedTab = tab,
-            isLoading = false
+            currentList = filteredList,
+            selectedTab = selectedTab,
+            isLoading = false,
+            selectedNoteId = validSelectedId // ENVIADO al estado
         )
     }.stateIn(
         scope = viewModelScope,
-        // Mantener activo por 5 segundos después de que el último observador desaparezca
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = HomeUiState(isLoading = true) // Estado inicial de carga
+        initialValue = HomeUiState(isLoading = true)
     )
 
-    // Función para cambiar la pestaña (llamada desde la UI)
+    // Función para cambiar la pestaña
     fun selectTab(tab: NoteTab) {
         _selectedTab.value = tab
+        clearSelection() // Opcional: limpiar la selección al cambiar de pestaña
     }
 
-    // Función para marcar una tarea como cumplida (Requisito)
+    // AÑADIDO: Función para seleccionar una nota (llamada desde HomeScreen)
+    fun selectNote(noteId: Long) {
+        _selectedNoteId.value = noteId
+    }
+
+    // AÑADIDO: Función para cerrar el panel de detalle (llamada desde HomeScreen)
+    fun clearSelection() {
+        _selectedNoteId.value = null
+    }
+
+    // Función para marcar una tarea como cumplida (se mantiene)
     fun toggleTaskCompletion(task: NoteEntity) {
-        // Solo aplica la lógica si realmente es una tarea
         if (task.isTask) {
             viewModelScope.launch {
-                // Crea una copia de la tarea con el estado de completado invertido
                 val updatedTask = task.copy(isCompleted = !task.isCompleted)
                 repository.saveNote(updatedTask)
             }
         }
     }
 
-    // Función para eliminar una nota/tarea
+    // Función para eliminar una nota/tarea (se mantiene, con lógica de limpieza añadida)
     fun deleteNote(note: NoteEntity) {
         viewModelScope.launch {
             repository.deleteNote(note)
+            if (_selectedNoteId.value == note.id) {
+                clearSelection() // Limpiar selección si se elimina la nota de detalle
+            }
         }
     }
 
-    // CORRECCIÓN 1: Cambiado de propiedad a función (repository.allMedia -> repository.getAllMedia())
+    // Flujo de todos los archivos multimedia (se mantiene)
     val allMedia = repository.getAllMedia()
 
-    // CORRECCIÓN 2: Cambiado el nombre de la función (repository.insertMedia -> repository.addMedia)
+    // Función para añadir media (se mantiene)
     fun addMedia(media: MediaEntity) {
         viewModelScope.launch {
             repository.addMedia(media)

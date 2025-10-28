@@ -20,12 +20,16 @@ import androidx.navigation.NavHostController
 import com.jqlqapa.appnotas.data.AppDataContainer
 //import com.jqleapa.appnotas.ui.navigation.AppScreens
 import com.jqleapa.appnotas.ui.viewmodel.AddEditNoteViewModel
+import com.jqleapa.appnotas.ui.viewmodel.AddEditUiState
 import com.jqleapa.appnotas.ui.viewmodel.MediaItem
 import com.jqleapa.appnotas.ui.viewmodel.ReminderItem
 import com.jqlqapa.appnotas.ui.navigation.AppScreens
 import java.text.SimpleDateFormat
 import java.util.*
 
+private val AddEditUiState.isDeleted: Boolean
+    get() = this.saveSuccessful && this.noteId == null
+/*private val AddEditUiState.isDeleted: Boolean*/
 private val simpleDateFormatter: SimpleDateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
 private val fullDateFormatter: SimpleDateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
 
@@ -217,7 +221,176 @@ fun NoteDetailScreen(noteId: Long, navController: NavHostController) {
         }
     )
 }
+@Composable
+fun NoteDetailContent(
+    noteId: Long,
+    onEditClick: () -> Unit,
+    onDeleteConfirmed: () -> Unit,
+    modifier: Modifier = Modifier
+) {
 
+    // El ViewModel se crea aquí y se mantiene en el ciclo de vida del composable.
+    val viewModel: AddEditNoteViewModel = viewModel(
+        factory = AddEditNoteViewModel.Companion.AddEditViewModelFactory(
+            noteRepository = AppDataContainer.noteRepository,
+            editId = noteId
+        )
+    )
+
+    val uiState by viewModel.uiState.collectAsState()
+
+    // Maneja la acción después de guardar/actualizar (e.g., toggle completion)
+    LaunchedEffect(uiState.saveSuccessful) {
+        if (uiState.saveSuccessful) {
+            viewModel.saveComplete()
+        }
+    }
+
+    // Maneja la acción después de la eliminación exitosa.
+    LaunchedEffect(uiState.isDeleted) {
+        if (uiState.isDeleted) {
+            onDeleteConfirmed() // Ejecuta el callback para la navegación/limpieza de selección.
+        }
+    }
+
+    LazyColumn(
+        modifier = modifier
+            .padding(16.dp)
+            .fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Título
+        item {
+            Text(
+                uiState.title.takeIf { it.isNotBlank() } ?: "Nota Sin Título",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        // Descripción
+        item {
+            Text(
+                uiState.description,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        // Tipo y Estado de la Tarea
+        if (uiState.isTask) {
+            item {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        "Tipo: Tarea",
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+
+                    uiState.taskDueDate?.let { dueDate ->
+                        Text(
+                            "Vencimiento: ${fullDateFormatter.format(Date(dueDate))}",
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+
+                    Text(
+                        // Símbolo actualizado para mejor visualización
+                        if (uiState.isCompleted) "Estado: Completada ✅" else "Estado: Pendiente 🕒",
+                        fontWeight = FontWeight.Medium,
+                        color = if (uiState.isCompleted) Color(0xFF4CAF50) else Color(0xFFFF5722)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = { viewModel.toggleCompletion(!uiState.isCompleted) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (uiState.isCompleted) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.primaryContainer
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(if (uiState.isCompleted) "Marcar como Pendiente" else "Marcar como Completada")
+                    }
+                }
+            }
+        } else {
+            item {
+                Text(
+                    "Tipo: Nota",
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+
+        // Recordatorios
+        if (uiState.reminders.isNotEmpty()) {
+            item {
+                Text("Recordatorios Programados:", style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(uiState.reminders) { reminder ->
+                        ReminderDisplay(reminder = reminder)
+                    }
+                }
+            }
+        }
+
+        // Archivos Adjuntos (Media)
+        if (uiState.mediaFiles.isNotEmpty()) {
+            item {
+                Text("Archivos Adjuntos:", style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(uiState.mediaFiles) { media ->
+                        AttachmentDisplay(media = media)
+                    }
+                }
+            }
+        }
+
+        // Botones Editar y Eliminar
+        item {
+            Spacer(modifier = Modifier.height(20.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Botón Editar
+                Button(
+                    onClick = onEditClick,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                ) {
+                    Text("Editar", color = MaterialTheme.colorScheme.onSecondary)
+                }
+
+                // Botón Eliminar
+                Button(
+                    onClick = { viewModel.deleteNote() }, // Llama a la función de eliminación
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Eliminar", color = MaterialTheme.colorScheme.onError)
+                }
+            }
+        }
+
+        // Mensaje de Error
+        uiState.error?.let { errorMsg ->
+            item {
+                Text(
+                    "Error: $errorMsg",
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp)
+                )
+            }
+        }
+    }
+}
 @Composable
 private fun ReminderDisplay(reminder: ReminderItem) {
     Card(
