@@ -85,10 +85,10 @@ class HomeViewModel(private val repository: NoteRepository) : ViewModel() {
         }
     }
 
-    // ✅ CORRECCIÓN 1: Cambiado de propiedad a función (repository.allMedia -> repository.getAllMedia())
+    // CORRECCIÓN 1: Cambiado de propiedad a función (repository.allMedia -> repository.getAllMedia())
     val allMedia = repository.getAllMedia()
 
-    // ✅ CORRECCIÓN 2: Cambiado el nombre de la función (repository.insertMedia -> repository.addMedia)
+    // CORRECCIÓN 2: Cambiado el nombre de la función (repository.insertMedia -> repository.addMedia)
     fun addMedia(media: MediaEntity) {
         viewModelScope.launch {
             repository.addMedia(media)

@@ -119,7 +119,7 @@ fun NoteDetailScreen(noteId: Long, navController: NavHostController) {
                             }
 
                             Text(
-                                if (uiState.isCompleted) "Estado: Completada ✅" else "Estado: Pendiente 🕒",
+                                if (uiState.isCompleted) "Estado: Completada " else "Estado: Pendiente 🕒",
                                 fontWeight = FontWeight.Medium,
                                 color = if (uiState.isCompleted) Color.Green else Color.Red
                             )

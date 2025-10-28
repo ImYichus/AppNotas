@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface NoteDao {
+    // En tu archivo NoteDao.kt, agrega esta línea
+    @Query("DELETE FROM notes WHERE id = :id")
+    suspend fun deleteNoteById(id: Long)
     // CRUD Básico
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertNote(note: NoteEntity): Long // Devuelve el ID de la nota creada/actualizada

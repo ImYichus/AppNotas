@@ -7,7 +7,7 @@ import com.jqlqapa.appnotas.data.model.MediaDao // Correcto
 import com.jqlqapa.appnotas.data.model.NoteDao // Correcto
 import com.jqlqapa.appnotas.data.model.ReminderDao // Correcto
 
-// ⬅️ CORRECCIÓN: Usar el paquete correcto 'jqlqapa'
+//  CORRECCIÓN: Usar el paquete correcto 'jqlqapa'
 //import com.jqlqapa.appnotas.ui.viewmodel.HomeViewModelFactory
 
 /**

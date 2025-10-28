@@ -23,6 +23,7 @@ fun createImageFile(context: Context): File {
     return File.createTempFile("IMG_${System.currentTimeMillis()}_", ".jpg", storageDir)
 }
 
+
 @Composable
 fun CameraCaptureScreen(viewModel: HomeViewModel, noteId: Long? = null) {
     val context = LocalContext.current

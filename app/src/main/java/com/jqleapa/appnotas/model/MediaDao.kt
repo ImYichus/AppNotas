@@ -18,7 +18,7 @@ interface MediaDao {
     @Delete
     suspend fun deleteMediaList(mediaList: List<MediaEntity>)
 
-    // ✅ CORRECCIÓN: Usar el nombre de tabla 'media' en lugar de 'media_table'
+    // CORRECCIÓN: Usar el nombre de tabla 'media' en lugar de 'media_table'
     @Query("SELECT * FROM media")
     fun getAllMedia(): Flow<List<MediaEntity>>
 }

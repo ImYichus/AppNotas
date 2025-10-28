@@ -29,7 +29,7 @@ private val dateFormatter: SimpleDateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm
 // Función principal de la pantalla
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddNoteScreen( // ✅ La función debe estar en este archivo para que la referencia se resuelva
+fun AddNoteScreen( //  La función debe estar en este archivo para que la referencia se resuelva
     navController: NavHostController,
     // Usamos la Factory definida en EditNoteScreen.kt
     viewModel: AddEditNoteViewModel = viewModel(

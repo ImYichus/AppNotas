@@ -1,4 +1,4 @@
-package com.jqlqapa.appnotas.ui.screens // ⬅️ CORRECCIÓN 1: Paquete cambiado a 'jqlqapa'
+package com.jqlqapa.appnotas.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,13 +9,11 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.* import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,79 +25,115 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.jqlqapa.appnotas.ui.navigation.AppScreens // ⬅️ CORRECCIÓN: Usando 'jqlqapa'
-import com.jqlqapa.appnotas.ui.viewmodel.HomeViewModel // ⬅️ CORRECCIÓN: Usando 'jqlqapa'
-//import com.jqlqapa.appnotas.ui.viewmodel.HomeViewModelFactory // ⬅️ Importación necesaria
-import com.jqlqapa.appnotas.ui.viewmodel.NoteTab // ⬅️ CORRECCIÓN: Usando 'jqlqapa'
+import com.jqlqapa.appnotas.ui.navigation.AppScreens
+import com.jqlqapa.appnotas.ui.viewmodel.HomeViewModel
+import com.jqlqapa.appnotas.ui.viewmodel.NoteTab
 import com.jqlqapa.appnotas.data.model.NoteEntity
 import com.jqlqapa.appnotas.data.AppDataContainer
-import com.jqlqapa.appnotas.ui.navigation.NOTE_ID_ARG // ⬅️ CORRECCIÓN: Usando 'jqlqapa'
+import com.jqlqapa.appnotas.ui.navigation.NOTE_ID_ARG
 import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.vector.ImageVector
+// Importar androidx.compose.material3.ColorScheme para la función de adaptabilidad
+import androidx.compose.material3.ColorScheme
 
 private val dateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+
+// Definición de colores para adaptabilidad
+val phonePrimary = Color(0xFF4CAF50) // Verde
+val tabletPrimary = Color(0xFF9C27B0) // Morado
+
+// ----------------------------------------------------
+// NUEVA FUNCIÓN: Determina el tipo de dispositivo
+// ----------------------------------------------------
+enum class WindowType { Phone, Tablet }
+
+@Composable
+fun rememberWindowType(): WindowType {
+    val configuration = LocalConfiguration.current
+    // Un ancho mayor o igual a 600dp se considera tablet
+    return if (configuration.screenWidthDp >= 600) WindowType.Tablet else WindowType.Phone
+}
+
+// ----------------------------------------------------
+// NUEVA FUNCIÓN: Genera el ColorScheme adaptable
+// ----------------------------------------------------
+@Composable
+fun getAdaptiveColorScheme(windowType: WindowType): ColorScheme {
+    // Usamos el ColorScheme actual para heredar todos los demás colores (secundario, fondo, etc.)
+    val baseColorScheme = MaterialTheme.colorScheme
+
+    return remember(windowType) {
+        when (windowType) {
+            WindowType.Phone -> baseColorScheme.copy(primary = phonePrimary, primaryContainer = phonePrimary.copy(alpha = 0.8f))
+            WindowType.Tablet -> baseColorScheme.copy(primary = tabletPrimary, primaryContainer = tabletPrimary.copy(alpha = 0.8f))
+        }
+    }
+}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     navController: NavController,
-    // ✅ INYECTAMOS EL VIEWMODEL (más limpio) o lo resolvemos en el Composable
 ) {
-    // ⬇️ CORRECCIÓN 2: Obtener ViewModel de forma correcta usando el Singleton.
-    // Asumimos que AppDataContainer ya está inicializado en AppNotasApplication.kt
     val context = LocalContext.current
-
-    // Obtener la instancia de la fábrica del Singleton ya inicializado
-    // Usamos el mismo patrón de AppNotasApplication.kt, asumiendo que el Singleton funciona
     val factory = AppDataContainer.homeViewModelFactory
     val viewModel: HomeViewModel = viewModel(factory = factory)
-
-    // El resto del código usa el uiState de forma correcta
     val uiState by viewModel.uiState.collectAsState()
 
-    Scaffold(
-        topBar = {
-            HomeTopBar(
-                onSearchClick = { navController.navigate(AppScreens.Search.route) }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { navController.navigate(AppScreens.AddNote.route) },
-                containerColor = MaterialTheme.colorScheme.primary,
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Agregar nota")
-            }
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-        ) {
-            HomeTabRow(
-                selectedTab = uiState.selectedTab,
-                onTabSelected = viewModel::selectTab
-            )
+    // Obtener el tipo de dispositivo y el esquema de color adaptable
+    val windowType = rememberWindowType()
+    val adaptiveColorScheme = getAdaptiveColorScheme(windowType)
 
-            when {
-                uiState.isLoading -> LoadingScreen()
-                uiState.currentList.isEmpty() -> EmptyState(uiState.selectedTab)
-                else -> NoteTaskList(
-                    notes = uiState.currentList,
-                    onNoteClick = { id ->
-                        val routeWithId = AppScreens.EditNote.route.replace("{$NOTE_ID_ARG}", id.toString())
-                        navController.navigate(routeWithId)
-                    },
-                    onToggleCompletion = viewModel::toggleTaskCompletion,
-                    onDelete = viewModel::deleteNote
+    // ⬇ CAMBIO: Aplicar un MaterialTheme anidado para cambiar los colores localmente
+    MaterialTheme(colorScheme = adaptiveColorScheme) {
+        Scaffold(
+            topBar = {
+                HomeTopBar(
+                    onSearchClick = { navController.navigate(AppScreens.Search.route) }
                 )
+            },
+            floatingActionButton = {
+                FloatingActionButton(
+                    onClick = { navController.navigate(AppScreens.AddNote.route) },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Agregar nota", tint = MaterialTheme.colorScheme.onPrimary)
+                }
+            }
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+            ) {
+                HomeTabRow(
+                    selectedTab = uiState.selectedTab,
+                    onTabSelected = viewModel::selectTab
+                )
+
+                when {
+                    uiState.isLoading -> LoadingScreen()
+                    uiState.currentList.isEmpty() -> EmptyState(uiState.selectedTab)
+                    else -> NoteTaskList(
+                        notes = uiState.currentList,
+                        onNoteClick = { id ->
+                            // Corregido: La función replace toma old/new values.
+                            val routeWithId = AppScreens.EditNote.route.replace("{$NOTE_ID_ARG}", id.toString())
+                            navController.navigate(routeWithId)
+                        },
+                        onToggleCompletion = viewModel::toggleTaskCompletion,
+                        onDelete = viewModel::deleteNote
+                    )
+                }
             }
         }
-    }
+    } // Cierre del MaterialTheme anidado
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeTopBar(onSearchClick: () -> Unit) {
@@ -117,28 +151,44 @@ fun HomeTopBar(onSearchClick: () -> Unit) {
         ),
         actions = {
             IconButton(onClick = onSearchClick) {
-                Icon(Icons.Default.Search, contentDescription = "Buscar", tint = Color.White)
+                // Usar colorScheme.onPrimary para el ícono (color que contrasta)
+                Icon(Icons.Default.Search, contentDescription = "Buscar", tint = MaterialTheme.colorScheme.onPrimary)
             }
         }
     )
 }
 
+// ----------------------------------------------------
+// MODIFICACIÓN: HomeTabRow con Íconos
+// ----------------------------------------------------
 @Composable
 fun HomeTabRow(selectedTab: NoteTab, onTabSelected: (NoteTab) -> Unit) {
-    val tabs = listOf(NoteTab.NOTES to "Notas", NoteTab.TASKS to "Tareas")
+    // Definición de las pestañas con su título, su clave y su icono
+    val tabs = listOf(
+        Triple(NoteTab.NOTES, "Notas", Icons.Filled.Description), // Descripción para Notas
+        Triple(NoteTab.TASKS, "Tareas", Icons.Filled.Checklist) // Checklist o Task para Tareas
+    )
 
     TabRow(selectedTabIndex = tabs.indexOfFirst { it.first == selectedTab }) {
-        tabs.forEach { (tab, title) ->
+        tabs.forEach { (tab, title, icon) ->
             Tab(
                 selected = tab == selectedTab,
                 onClick = { onTabSelected(tab) },
-                text = { Text(title, fontWeight = FontWeight.Bold) },
+                // El color seleccionado y no seleccionado se adapta al primary
                 selectedContentColor = MaterialTheme.colorScheme.primary,
-                unselectedContentColor = MaterialTheme.colorScheme.onSurface
+                unselectedContentColor = MaterialTheme.colorScheme.onSurface,
+
+                // ⬇ CAMBIO: Contenido de la pestaña con Icono y Texto
+                icon = { Icon(imageVector = icon, contentDescription = title) },
+                text = { Text(title, fontWeight = FontWeight.Bold) }
             )
         }
     }
 }
+
+// ----------------------------------------------------
+// FUNCIONES RESTANTES (para resolver referencias)
+// ----------------------------------------------------
 
 @Composable
 fun NoteTaskList(
@@ -199,6 +249,7 @@ fun NoteCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
+        // Color de la tarjeta usará el scheme actual (surfaceVariant adaptado si lo tienes)
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         ),
@@ -234,7 +285,6 @@ fun NoteCard(
                 )
 
                 if (note.isTask && note.taskDueDate != null) {
-                    // ✅ CORRECCIÓN: Usar SimpleDateFormat para formatear el timestamp
                     Text(
                         text = "Vence: ${dateFormatter.format(Date(note.taskDueDate))}",
                         color = MaterialTheme.colorScheme.secondary,

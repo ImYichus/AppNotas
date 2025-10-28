@@ -135,7 +135,7 @@ fun AppNavigation(
             }
             composable(AppScreens.Reminder.route) {
                 // CAMBIO 4: Usamos ReminderScreen, que se ve en la estructura de tu proyecto
-                ReminderScreen(navController = navController)
+                HomeScreen(navController = navController)
             }
 
             // --- PANTALLAS QUE NO ESTÁN EN EL MENÚ INFERIOR, pero son rutas válidas ---

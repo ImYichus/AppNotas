@@ -22,7 +22,7 @@ class MainActivity : ComponentActivity() {
             // (application as AppNotasApplication).container.noteRepository es una forma común en apps con DI manual.
             val noteRepository = (application as AppNotasApplication).container.noteRepository
 
-            AppNotasTheme(themeStyle = ThemeStyle.PURPLE) {
+            AppNotasTheme(themeStyle = ThemeStyle.EMERALD) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     // Pasa el repositorio a la navegación.
                     AppNavigation(noteRepository = noteRepository)

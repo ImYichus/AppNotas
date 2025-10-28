@@ -63,7 +63,7 @@ fun EditNoteScreen(
     if (uiState.saveSuccessful) {
         LaunchedEffect(Unit) {
             viewModel.saveComplete() // Resetear el estado
-            println("✅ Navegación: Edición exitosa, regresando...")
+            println("Navegación: Edición exitosa, regresando...")
             navController.popBackStack() // Regresa a la pantalla anterior
         }
     }

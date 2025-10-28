@@ -31,13 +31,13 @@ data class AddEditUiState(
 )
 
 data class ReminderItem(
-    val id: Long = 0L, // ✅ ID del recordatorio
+    val id: Long = 0L, // ID del recordatorio
     val timeInMillis: Long,
     val description: String = ""
 )
 
 data class MediaItem(
-    val id: Long = 0L, // ✅ CORRECCIÓN CLAVE: Agregado el ID para MediaItem
+    val id: Long = 0L, // CORRECCIÓN CLAVE: Agregado el ID para MediaItem
     val uri: String,
     val description: String = "",
     val mediaType: String
@@ -81,7 +81,7 @@ class AddEditNoteViewModel(
 
                         mediaFiles = noteDetails.media.map { mediaEntity ->
                             MediaItem(
-                                id = mediaEntity.id, // ✅ Mapeo del ID de la entidad
+                                id = mediaEntity.id, //  Mapeo del ID de la entidad
                                 uri = mediaEntity.filePath,
                                 description = mediaEntity.description ?: "",
                                 mediaType = mediaEntity.mediaType ?: "UNKNOWN"
