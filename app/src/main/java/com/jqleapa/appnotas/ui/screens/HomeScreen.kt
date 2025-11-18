@@ -72,9 +72,9 @@ fun getAdaptiveColorScheme(windowType: WindowType): ColorScheme {
     }
 }
 
-// ----------------------------------------------------
-// COMPONENTE PRINCIPAL DE PANTALLA (CORREGIDO)
-// ----------------------------------------------------
+//
+// COMPONENTE PRINCIPAL DE PANTALLA
+//
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
