@@ -107,7 +107,6 @@ class HomeViewModel(private val repository: NoteRepository) : ViewModel() {
     // Flujo de todos los archivos multimedia (se mantiene)
     val allMedia = repository.getAllMedia()
 
-    // Función para añadir media (se mantiene)
     fun addMedia(media: MediaEntity) {
         viewModelScope.launch {
             repository.addMedia(media)
