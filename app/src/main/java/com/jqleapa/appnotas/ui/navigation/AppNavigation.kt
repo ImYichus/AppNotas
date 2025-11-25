@@ -21,13 +21,14 @@ import com.jqleapa.appnotas.ui.screens.CameraCaptureScreen
 import com.jqleapa.appnotas.ui.screens.EditNoteScreen
 import com.jqleapa.appnotas.ui.screens.GalleryScreen
 import com.jqleapa.appnotas.ui.screens.NoteDetailScreen
-import com.jqleapa.appnotas.ui.screens.SearchScreen
-// Importar ReminderScreen que se ve en la estructura
 import com.jqleapa.appnotas.ui.screens.ReminderScreen
+import com.jqleapa.appnotas.ui.screens.SearchScreen
 import com.jqleapa.appnotas.ui.viewmodel.HomeViewModelFactory
+// Importaciones de Pantallas (Aseguradas en el paquete correcto)
+import com.jqlqapa.appnotas.ui.screens.HomeScreen
+// Importaciones de ViewModel/Data (Aseguradas en el paquete correcto)
 import com.jqlqapa.appnotas.ui.viewmodel.HomeViewModel
 import com.jqlqapa.appnotas.data.NoteRepository
-import com.jqlqapa.appnotas.ui.screens.HomeScreen
 
 // Nombre del argumento para evitar errores de escritura
 const val NOTE_ID_ARG = "noteId"
@@ -145,7 +146,7 @@ fun AppNavigation(
                 HomeScreen(navController)
             }
             composable(AppScreens.Reminder.route) {
-                // CAMBIO 4: Usamos ReminderScreen, que se ve en la estructura de tu proyecto
+                // El uso de ReminderScreen aquí es correcto según la estructura definida.
                 ReminderScreen(navController = navController)
             }
 
