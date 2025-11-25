@@ -13,30 +13,30 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.compose.viewModel // Importación clave
 import androidx.navigation.NavHostController
-import com.jqlqapa.appnotas.data.AppDataContainer
+// Importaciones de ViewModels y Factories
 import com.jqleapa.appnotas.ui.viewmodel.AddEditNoteViewModel
+import com.jqlqapa.appnotas.ui.viewmodel.AddEditViewModelFactory
 import com.jqleapa.appnotas.ui.viewmodel.MediaItem
 import com.jqleapa.appnotas.ui.viewmodel.ReminderItem
 import java.text.SimpleDateFormat
 import java.util.*
 
-// Se mantiene la Factory simplificada (que debe estar en EditNoteScreen.kt o un archivo común)
-// Se redefinen las funciones auxiliares aquí para asegurar la compilación, o se asume su importación.
 private val dateFormatter: SimpleDateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
 
 // Función principal de la pantalla
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddNoteScreen( //  La función debe estar en este archivo para que la referencia se resuelva
+fun AddNoteScreen(
     navController: NavHostController,
-    // Usamos la Factory definida en EditNoteScreen.kt
-    viewModel: AddEditNoteViewModel = viewModel(
-        factory = AddEditViewModelFactory(AppDataContainer.noteRepository)
-    )
+    // RECIBE LA FACTORY COMO PARÁMETRO
+    factory: AddEditViewModelFactory
 ) {
-    // 1. Recoger el estado de la UI del ViewModel
+    // 1. INSTANCIAR EL VIEWMODEL USANDO LA FACTORY RECIBIDA
+    val viewModel: AddEditNoteViewModel = viewModel(factory = factory)
+
+    // 2. Recoger el estado de la UI del ViewModel
     val uiState by viewModel.uiState.collectAsState()
 
     // Estados para controlar diálogos
@@ -80,7 +80,6 @@ fun AddNoteScreen( //  La función debe estar en este archivo para que la refere
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    // Llama a saveNote(). Como uiState.noteId es nulo, insertará.
                     if (!uiState.isSaving && uiState.title.isNotBlank()) {
                         viewModel.saveNote()
                     }
@@ -100,7 +99,7 @@ fun AddNoteScreen( //  La función debe estar en este archivo para que la refere
         }
     ) { padding ->
 
-        // El resto del contenido de la pantalla (Inputs, Checkboxes, etc.) es igual al de EditNoteScreen
+        // Contenido de la pantalla
         LazyColumn(
             modifier = Modifier
                 .padding(padding)
@@ -218,7 +217,7 @@ fun AddNoteScreen( //  La función debe estar en este archivo para que la refere
 
             // --- Adjuntos Multimedia ---
             item {
-                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                 Text("Archivos Adjuntos:", fontWeight = FontWeight.Medium)
             }
 
@@ -226,16 +225,17 @@ fun AddNoteScreen( //  La función debe estar en este archivo para que la refere
             items(uiState.mediaFiles, key = { it.uri }) { mediaItem ->
                 AttachmentItemComponent(
                     mediaItem = mediaItem,
-                    onDelete = { /* Lógica de eliminación en ViewModel: deleteMedia(mediaItem) */ }
+                    // Se asume que AddNoteScreen usará la misma lógica de eliminación si se adjuntan archivos antes de guardar
+                    onDelete = { viewModel.deleteMedia(mediaItem) }
                 )
             }
 
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(onClick = { /* Lógica para Adjuntar multimedia */ }) {
+                    Button(onClick = { /* Lógica para Adjuntar multimedia (debería abrir el picker) */ }) {
                         Text("Adjuntar Multimedia")
                     }
-                    Button(onClick = { /* Lógica para Grabar audio */ }) {
+                    Button(onClick = { /* Lógica para Grabar audio (debería abrir el diálogo) */ }) {
                         Text("Grabar Audio")
                     }
                 }
@@ -244,7 +244,8 @@ fun AddNoteScreen( //  La función debe estar en este archivo para que la refere
     }
 }
 
-// Las funciones auxiliares deben estar definidas aquí o ser importables.
+// --- COMPONENTES AUXILIARES (SE MANTIENEN IGUAL) ---
+
 @Composable
 private fun ReminderItemComponent(reminderItem: ReminderItem, onDelete: () -> Unit) {
     Card(

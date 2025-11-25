@@ -16,32 +16,40 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+// ----------------------------------------------------------------------
+// IMPORTACIONES DE PANTALLAS (Ajusta el paquete si es necesario)
+// ----------------------------------------------------------------------
 import com.jqleapa.appnotas.ui.screens.AddNoteScreen
 import com.jqleapa.appnotas.ui.screens.CameraCaptureScreen
-import com.jqleapa.appnotas.ui.screens.EditNoteScreen
 import com.jqleapa.appnotas.ui.screens.GalleryScreen
 import com.jqleapa.appnotas.ui.screens.NoteDetailScreen
 import com.jqleapa.appnotas.ui.screens.ReminderScreen
 import com.jqleapa.appnotas.ui.screens.SearchScreen
 import com.jqleapa.appnotas.ui.viewmodel.HomeViewModelFactory
-// Importaciones de Pantallas (Aseguradas en el paquete correcto)
 import com.jqlqapa.appnotas.ui.screens.HomeScreen
-// Importaciones de ViewModel/Data (Aseguradas en el paquete correcto)
-import com.jqlqapa.appnotas.ui.viewmodel.HomeViewModel
+import com.jqlqapa.appnotas.ui.screens.EditNoteScreen
+
+// ----------------------------------------------------------------------
+// IMPORTACIONES DE VIEWMODEL/DATA
+// ----------------------------------------------------------------------
+import com.jqlqapa.appnotas.ui.viewmodel.HomeViewModel // Se importa para el casting en Camera/Gallery
+import com.jqlqapa.appnotas.ui.viewmodel.AddEditViewModelFactory // <<-- ¡IMPORTANTE! Nueva Factory
 import com.jqlqapa.appnotas.data.NoteRepository
+
+// ----------------------------------------------------------------------
+// CONSTANTES Y DEFINICIONES DE RUTAS
+// ----------------------------------------------------------------------
 
 // Nombre del argumento para evitar errores de escritura
 const val NOTE_ID_ARG = "noteId"
 
-// 1. MODIFICACIÓN: Definición de las Pantallas
+// Definición de las Pantallas
 sealed class AppScreens(val route: String, val label: String? = null, val icon: ImageVector? = null) {
-    // Pantallas del Menú Inferior (SOLO DOS)
-    // CAMBIO 1: Home ahora es "Notas" y usa el icono Description
+    // Pantallas del Menú Inferior
     object Home : AppScreens("home", "Notas", Icons.Filled.Description)
-    // CAMBIO 2: Reminder ahora es "Pendientes" y usa el icono Checklist
     object Reminder : AppScreens("reminder", "Pendientes", Icons.Filled.Checklist)
 
-    // Pantallas que NO estarán en el menú inferior, pero existen en la app
+    // Pantallas que NO estarán en el menú inferior
     object Search : AppScreens("search", "Buscar", Icons.Filled.Search)
     object Camera : AppScreens("camera", "Cámara", Icons.Filled.CameraAlt)
     object Gallery : AppScreens("gallery", "Galería", Icons.Filled.PhotoLibrary)
@@ -54,14 +62,11 @@ sealed class AppScreens(val route: String, val label: String? = null, val icon: 
     fun withArgs(vararg args: String): String {
         var finalRoute = this.route
 
-        // La lógica asume que para NoteDetail y EditNote, solo se espera el Note ID.
         if (args.isNotEmpty()) {
             if (finalRoute.contains("{$NOTE_ID_ARG}")) {
                 // Reemplaza el placeholder con el primer argumento (el ID)
                 finalRoute = finalRoute.replace("{$NOTE_ID_ARG}", args[0])
             }
-            // Si hay más argumentos (o la ruta no usa {noteId}), se concatenan.
-            // Para rutas como "camera" o "gallery", esto no debería tener efecto.
             if (args.size > 1) {
                 // Junta los argumentos restantes con '/'
                 val additionalArgs = args.drop(1).joinToString("/")
@@ -73,24 +78,22 @@ sealed class AppScreens(val route: String, val label: String? = null, val icon: 
 }
 
 // Lista de elementos que aparecerán en la barra de navegación inferior
-// CAMBIO 3: La lista ahora solo contiene Home (Notas) y Reminder (Pendientes)
 val bottomNavItems = listOf(
     AppScreens.Home,
     AppScreens.Reminder
 )
 
-// 2. COMPONENTE: La Barra de Navegación Inferior (SIN CAMBIOS RELEVANTES AQUÍ)
+// ----------------------------------------------------------------------
+// COMPONENTE: La Barra de Navegación Inferior
+// ----------------------------------------------------------------------
 @Composable
 fun AppBottomNavigationBar(navController: NavHostController) {
     NavigationBar {
         val navBackStackEntry by navController.currentBackStackEntryAsState()
-        // Obtiene la ruta actual, ignorando argumentos como "{noteId}"
         val currentRoute = navBackStackEntry?.destination?.route?.substringBefore('/')
 
         bottomNavItems.forEach { screen ->
             val isSelected = currentRoute == screen.route
-
-            // Los elementos del menú SIEMPRE tienen ícono y etiqueta (por definición en bottomNavItems)
             val icon = screen.icon!!
             val label = screen.label!!
 
@@ -121,15 +124,22 @@ fun AppBottomNavigationBar(navController: NavHostController) {
 }
 
 
-// 3. INTEGRACIÓN: Scaffold y NavHost
+// ----------------------------------------------------------------------
+// INTEGRACIÓN: Scaffold y NavHost
+// ----------------------------------------------------------------------
 @Composable
 fun AppNavigation(
     navController: NavHostController = rememberNavController(),
     noteRepository: NoteRepository
 ) {
-    // Crea la instancia de la Fábrica con la dependencia.
+    // 1. Fábrica para HomeViewModel (usada en HomeScreen, Camera, Gallery)
     val homeViewModelFactory = remember {
         HomeViewModelFactory(noteRepository = noteRepository)
+    }
+
+    // 2. Fábrica para AddEditNoteViewModel (usada en AddNote y EditNote)
+    val addEditViewModelFactory = remember {
+        AddEditViewModelFactory(noteRepository = noteRepository)
     }
 
     Scaffold(
@@ -141,16 +151,15 @@ fun AppNavigation(
             startDestination = AppScreens.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            // --- PANTALLAS DEL MENÚ INFERIOR (Solo Home y Reminder) ---
+            // --- PANTALLAS DEL MENÚ INFERIOR ---
             composable(AppScreens.Home.route) {
                 HomeScreen(navController)
             }
             composable(AppScreens.Reminder.route) {
-                // El uso de ReminderScreen aquí es correcto según la estructura definida.
                 ReminderScreen(navController = navController)
             }
 
-            // --- PANTALLAS QUE NO ESTÁN EN EL MENÚ INFERIOR, pero son rutas válidas ---
+            // --- PANTALLAS QUE NO ESTÁN EN EL MENÚ INFERIOR ---
             composable(AppScreens.Search.route) {
                 SearchScreen(navController = navController)
             }
@@ -168,7 +177,11 @@ fun AppNavigation(
 
             // --- PANTALLAS SECUNDARIAS ---
             composable(AppScreens.AddNote.route) {
-                AddNoteScreen(navController = navController)
+                // Se asume que AddNoteScreen requiere la fábrica también
+                AddNoteScreen(
+                    navController = navController,
+                    factory = addEditViewModelFactory
+                )
             }
             composable(
                 route = AppScreens.NoteDetail.route,
@@ -187,7 +200,12 @@ fun AppNavigation(
                 val noteId = backStackEntry.arguments?.getLong(NOTE_ID_ARG)
                 requireNotNull(noteId) { "El ID de la nota no puede ser nulo" }
 
-                EditNoteScreen(noteId = noteId, navController = navController)
+                // SOLUCIÓN AL ERROR: Se pasa la fábrica como parámetro.
+                EditNoteScreen(
+                    noteId = noteId,
+                    navController = navController,
+                    factory = addEditViewModelFactory
+                )
             }
         }
     }

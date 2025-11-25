@@ -1,70 +1,97 @@
-package com.jqleapa.appnotas.ui.screens
+package com.jqlqapa.appnotas.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import com.jqlqapa.appnotas.data.AppDataContainer
-import com.jqlqapa.appnotas.data.NoteRepository
 import com.jqleapa.appnotas.ui.viewmodel.AddEditNoteViewModel
 import com.jqleapa.appnotas.ui.viewmodel.MediaItem
 import com.jqleapa.appnotas.ui.viewmodel.ReminderItem
+import com.jqlqapa.appnotas.data.AppDataContainer
+import com.jqlqapa.appnotas.data.model.MediaEntity
+import com.jqlqapa.appnotas.ui.components.AudioRecorderDialog
+import com.jqlqapa.appnotas.ui.viewmodel.AddEditViewModelFactory
+import com.jqlqapa.appnotas.utils.AndroidAudioRecorder
+import com.jqlqapa.appnotas.utils.createMediaFile
+import com.jqlqapa.appnotas.utils.getMediaUri
 import java.text.SimpleDateFormat
 import java.util.*
 
 private val dateFormatter: SimpleDateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-
-class AddEditViewModelFactory(
-    private val noteRepository: NoteRepository
-) : ViewModelProvider.Factory {
-    @Suppress("UNCHECKED_CAST")
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(AddEditNoteViewModel::class.java)) {
-            return AddEditNoteViewModel(noteRepository) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
-    }
-}
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditNoteScreen(
     noteId: Long,
     navController: NavHostController,
-    viewModel: AddEditNoteViewModel = viewModel(
-        factory = AddEditViewModelFactory(AppDataContainer.noteRepository)
-    )
+    // Se usa la factory importada de AddEditViewModelFactory.kt
+    factory: AddEditViewModelFactory
 ) {
+    // Obtenemos el ViewModel usando la factory inyectada
+    val viewModel: AddEditNoteViewModel = viewModel(factory = factory)
 
     LaunchedEffect(key1 = noteId) {
         viewModel.loadNote(noteId)
     }
 
     val uiState by viewModel.uiState.collectAsState()
-
     var showDatePicker by remember { mutableStateOf(false) }
 
+    // --- VARIABLES Y ESTADO PARA MULTIMEDIA ---
+    val context = LocalContext.current
+    var tempImageUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var tempVideoUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var showAudioDialog by remember { mutableStateOf(false) }
 
+    // --- LANZADORES DE ACTIVIDAD ---
+    val takePictureLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        if (success && tempImageUri != null) {
+            viewModel.addMedia(MediaEntity(
+                noteId = noteId,
+                filePath = tempImageUri.toString(),
+                mediaType = "IMAGE",
+                description = "Foto tomada"
+            ))
+        }
+    }
+
+    val captureVideoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CaptureVideo()) { success ->
+        if (success && tempVideoUri != null) {
+            viewModel.addMedia(MediaEntity(
+                noteId = noteId,
+                filePath = tempVideoUri.toString(),
+                mediaType = "VIDEO",
+                description = "Video grabado"
+            ))
+        }
+    }
+
+    // --- NAVEGACIÓN Y GUARDADO ---
     if (uiState.saveSuccessful) {
         LaunchedEffect(Unit) {
-            viewModel.saveComplete() // Resetear el estado
-            println("Navegación: Edición exitosa, regresando...")
-            navController.popBackStack() // Regresa a la pantalla anterior
+            viewModel.saveComplete()
+            navController.popBackStack()
         }
     }
 
@@ -72,9 +99,26 @@ fun EditNoteScreen(
         SimulatedDateTimePickerDialog(
             onDismiss = { showDatePicker = false },
             onDateSelected = { time ->
-                viewModel.updateTaskDueDate(time) // Llama a la función del ViewModel
+                viewModel.updateTaskDueDate(time)
                 showDatePicker = false
             }
+        )
+    }
+
+    // --- DIÁLOGO DE AUDIO ---
+    if (showAudioDialog) {
+        AudioRecorderDialog(
+            onDismiss = { showAudioDialog = false },
+            onSave = { file ->
+                val uri = getMediaUri(context, file)
+                viewModel.addMedia(MediaEntity(
+                    noteId = noteId,
+                    filePath = uri.toString(),
+                    mediaType = "AUDIO",
+                    description = "Audio grabado"
+                ))
+            },
+            audioRecorder = remember { AndroidAudioRecorder(context) }
         )
     }
 
@@ -89,6 +133,11 @@ fun EditNoteScreen(
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                 },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary
                 )
@@ -97,7 +146,6 @@ fun EditNoteScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    // Ahora saveNote() actualizará si uiState.noteId tiene valor
                     if (!uiState.isSaving && uiState.title.isNotBlank()) {
                         viewModel.saveNote()
                     }
@@ -125,7 +173,6 @@ fun EditNoteScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                // Selección Nota/Tarea
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Tipo:", fontWeight = FontWeight.Medium)
                     Spacer(modifier = Modifier.width(16.dp))
@@ -146,7 +193,6 @@ fun EditNoteScreen(
             }
 
             item {
-                // Título y Descripción
                 OutlinedTextField(
                     value = uiState.title,
                     onValueChange = viewModel::updateTitle,
@@ -167,10 +213,9 @@ fun EditNoteScreen(
                 )
             }
 
-            // --- Lógica de Tarea ---
+            // --- SECCIÓN DE TAREAS Y RECORDATORIOS ---
             if (uiState.isTask) {
                 item {
-                    // Fecha y hora
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Fecha de Cumplimiento:", fontWeight = FontWeight.Medium)
                         Button(
@@ -186,7 +231,6 @@ fun EditNoteScreen(
                 }
 
                 item {
-                    // Requisito: Marcar como cumplida
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -201,18 +245,16 @@ fun EditNoteScreen(
                         )
                     }
                     Button(
-                        onClick = { showDatePicker = true } // Posponer es re-seleccionar fecha
+                        onClick = { showDatePicker = true }
                     ) {
                         Text("Posponer Tarea")
                     }
                 }
 
                 item {
-                    // Recordatorios dinámicos
                     Text("Recordatorios:", fontWeight = FontWeight.Medium)
                 }
 
-                // Lista de Recordatorios
                 items(uiState.reminders, key = { it.id }) { reminderItem ->
                     ReminderItemComponent(
                         reminderItem = reminderItem,
@@ -220,38 +262,79 @@ fun EditNoteScreen(
                     )
                 }
 
+                // BOTÓN: AGREGAR RECORDATORIO/ALARMA
                 item {
                     Button(
-                        onClick = { viewModel.addReminder() },
+                        onClick = { viewModel.addReminder() }, // Llama a la lógica del ViewModel para añadir un recordatorio nuevo
                         modifier = Modifier.fillMaxWidth(),
-                        contentPadding = PaddingValues(12.dp)
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
                     ) {
-                        Text("Agregar Recordatorio")
+                        Icon(Icons.Default.Alarm, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Agregar Alarma")
                     }
                 }
             }
 
-            // --- Adjuntos Multimedia ---
+            // --- SECCIÓN MULTIMEDIA ---
             item {
-                Spacer(modifier = Modifier.height(10.dp))
-                Text("Archivos Adjuntos:", fontWeight = FontWeight.Medium)
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                Text("Multimedia:", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // Lista de Adjuntos
+            // Lista de Adjuntos existentes
             items(uiState.mediaFiles, key = { it.uri }) { mediaItem ->
                 AttachmentItemComponent(
                     mediaItem = mediaItem,
-                    onDelete = { /* Lógica de eliminación en ViewModel: deleteMedia(mediaItem) */ }
+                    onDelete = { viewModel.deleteMedia(mediaItem) }
                 )
             }
 
+            // BARRA DE BOTONES (FOTO, VIDEO, AUDIO)
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(onClick = { /* Lógica para Adjuntar multimedia */ }) {
-                        Text("Adjuntar Multimedia")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    // BOTÓN FOTO
+                    IconButton(
+                        onClick = {
+                            val file = createMediaFile(context, "IMAGE")
+                            val uri = getMediaUri(context, file)
+                            tempImageUri = uri
+                            takePictureLauncher.launch(uri)
+                        },
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(MaterialTheme.colorScheme.primaryContainer, shape = CircleShape)
+                    ) {
+                        Icon(Icons.Default.CameraAlt, contentDescription = "Tomar Foto", tint = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
-                    Button(onClick = { /* Lógica para Grabar audio */ }) {
-                        Text("Grabar Audio")
+
+                    // BOTÓN VIDEO
+                    IconButton(
+                        onClick = {
+                            val file = createMediaFile(context, "VIDEO")
+                            val uri = getMediaUri(context, file)
+                            tempVideoUri = uri
+                            captureVideoLauncher.launch(uri)
+                        },
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(MaterialTheme.colorScheme.primaryContainer, shape = CircleShape)
+                    ) {
+                        Icon(Icons.Default.Videocam, contentDescription = "Grabar Video", tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+
+                    // BOTÓN AUDIO
+                    IconButton(
+                        onClick = { showAudioDialog = true },
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(MaterialTheme.colorScheme.primaryContainer, shape = CircleShape)
+                    ) {
+                        Icon(Icons.Default.Mic, contentDescription = "Grabar Audio", tint = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
                 }
             }
@@ -259,8 +342,9 @@ fun EditNoteScreen(
     }
 }
 
-// Los componentes auxiliares (ReminderItemComponent, AttachmentItemComponent, SimulatedDateTimePickerDialog)
-// se mantienen sin cambios, ya que estaban correctamente definidos como privados.
+private fun AddEditNoteViewModel.addMedia(mediaEntity: MediaEntity) {}
+
+// --- COMPONENTES AUXILIARES ---
 
 @Composable
 private fun ReminderItemComponent(reminderItem: ReminderItem, onDelete: () -> Unit) {
@@ -306,6 +390,7 @@ private fun AttachmentItemComponent(mediaItem: MediaItem, onDelete: () -> Unit) 
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
             Column {
+                // Muestra solo el nombre del archivo para que sea más limpio
                 Text(mediaItem.uri.substringAfterLast('/'), fontWeight = FontWeight.Medium)
                 if (mediaItem.description.isNotEmpty()) {
                     Text(
@@ -314,6 +399,12 @@ private fun AttachmentItemComponent(mediaItem: MediaItem, onDelete: () -> Unit) 
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                // Muestra el tipo de medio
+                Text(
+                    text = mediaItem.mediaType,
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
             IconButton(onClick = onDelete) {
                 Icon(
